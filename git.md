@@ -354,6 +354,17 @@ git push -u origin main
 You can initialize this repository with code from a Subversion, Mercurial, or TFS project.
 
 
+★ローカルPCにリモートリポジトリを作成することもできる。
+
+	$ git init --bare c:\git-repos\test  # c:\git-repos ディレクトリがなくても作ってくれる
+	$ git init --bare test               # c:\git-repos にいる状態
+	$ git init --bare                    # c:\git-repos\test にいる状態
+		※コマンド実行後に表示されるリポジトリのパスに注目
+		　--bare で init すると、.git がつかられない。
+
+		※実際のリポジトリのパスには、コマンドで出力されるパスの前に `file://` をつける
+			★つけなくてもよかったりする？
+
 
 ## 付録A. コミット指定方法
 
@@ -361,7 +372,7 @@ You can initialize this repository with code from a Subversion, Mercurial, or TF
 
 ```
 {{commit}} :=
-	  HEAD
+	  HEAD | ORG_HEAD | REBASE_HEAD
 	| {{commit-hash}}
 	| {{branch-name}}
 	| {{tag-name}}
@@ -381,6 +392,8 @@ You can initialize this repository with code from a Subversion, Mercurial, or TF
 |`{{commit}}~{{n}}`	|(あるコミット指定からの)n世代前のコミット|
 |`{{commit}}^`		|(あるコミット指定からの)1世代前の1番目のコミット|
 |`{{commit}}^{{n}}`	|(あるコミット指定からの)1世代前のn番目のコミット(マージコミットに対してのみ使用可)|
+|`ORG_HEAD`				|★|
+|`REBASE_HEAD`			|★|
 
 具体例：
 |事例|例|
