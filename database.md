@@ -157,7 +157,7 @@ MyBatisGenerator にスキーマを構築させることができる。
         生成したコースコードを git にコミットする場合には使えない。
 
 
-## PostgreSQL と H2 Database の両方で使用できる SQL にする
+# PostgreSQL と H2 Database の両方で使用できる SQL にする
 
 - ID値生成
     - DDL編
@@ -171,3 +171,29 @@ MyBatisGenerator にスキーマを構築させることができる。
                 <generatedKey column="id" sqlStatement="JDBC"/>
             </table>
             ```
+
+# H2 Database
+
+## Spring Boot + H2 Console
+
+H2 Console は SQL Developper 相当のツール。
+
+Spring Boot で Spring MVC + H2 + DevTools の環境で開発している場合、
+デフォルトで H2 Console が有効になっている（はず）。
+
+　参考) https://www.lifestyle12345.com/2019/04/h2-console-spring-boot.html
+
+そのため、In memory DB で動かしている場合でも
+DBのデータの内容確認や情報更新等が可能。
+
+Spring Boot の場合、`spring.h2.console.xxx` プロパティで各種設定変更可能。
+基本デフォルトでOK。
+
+H2 Console はデフォルトでは、 `/h2-console` にアクセスすることで表示できる。
+以下を入力して、Connect ボタンを押下する。
+
+- JDBC URL : `spring.datasource.url` プロパティと同じ値
+- User Name : `spring.datasource.username` プロパティと同じ値。設定しなかった場合は sa
+- Password : `spring.datasource.password`
+
+参考) https://it-jog.com/java/springdatajpa/h2console
