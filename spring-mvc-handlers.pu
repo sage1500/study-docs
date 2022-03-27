@@ -1,0 +1,117 @@
+@startuml spring-mvc-handlers
+
+A -> ServletContainer : xxx()
+ServletContainer -> Filter : doFilter()
+    note right
+        CharacterEncodingFilter : request, response の CharacterEncoding を設定する。
+        SessionRepositoryFilter : Sessionの外部からの読み込みと書き込みを処理する。
+        RequestContextFilter : LocaleContextHolder, RequestContextHolder を仕込む
+
+        CommonsRequestLoggingFilter, ServletContextRequestLoggingFilter : ログ
+        ForwardedHeaderFilter : X-Forwarded-* ヘッダを処理する。
+        MultipartFilter : MultiPart の前後処理
+    end note
+
+Filter -> Filter2 : doFilter()
+    note left
+        Filter が Spring security の
+        FilterChainProxy の場合
+    end note
+
+    note right
+        SecurityContextPersistenceFilter : SecurityContextHolder を仕込む
+        CsrfFilter : CSRFを処理する。
+            AccessDeniedHandler を呼び出す。
+        [/logout] LogoutFilter : LogoutHandler, LogoutSuccessHandler 呼出し。
+        ConcurrentSessionFilter : セッションのIDLE時間制御 ※セッションの期限切れで強制ログアウト
+            → HttpSecurity.sessionManagement().maximumSessions() でセッション数制限しないと有効にならない？
+        SessionManagementFilter : Session に紐づいた認証情報をチェックする
+        ExceptionTranslationFilter : 
+            AuthenticationException発生時に AuthenticationEntryPoint を呼び出す。
+            AccessDeniedException発生時に
+                anonymous認証時： AuthenticationEntryPoint を呼び出す。
+                上記以外： AccessDeniedHandler を呼び出す。
+
+        AuthenticationFilter : AuthenticationSuccessHandler, AuthenticationFailureHandler 呼出し
+            → ちゃんと認証する設定になっていないと仕込まれない？
+            → AuthenticationSuccessHandler はログインシーケンスで使われるものなので、ユーザ側で差し替えるものではない。
+
+        AuthorizationFilter : AccessDeniedException をスローする。
+            → ちゃんと認証する設定になっていないと仕込まれない？
+        RequestMatcherRedirectFilter : 特定のパスを特定のURLにリダイレクトする。
+            → 認証設定でリダイレクトするように設定しないと仕込まれない？
+    end note
+
+Filter2 -> DisptcherServlet : doService()
+
+DisptcherServlet -> DisptcherServlet : mappedHandler = getHandler()
+break ハンドラがなかった
+Filter2 <-- DisptcherServlet
+    note right 
+        デフォルトでは、response.sendError(404)する。
+    end note
+end
+
+DisptcherServlet -> DisptcherServlet : ha = getHandlerAdapter(mappedHandler.getHandler())
+
+
+DisptcherServlet -> Interceptor : preHandle()
+    note right
+        LocaleChangeInterceptor
+    end note
+break preHandle()が false 返却
+    DisptcherServlet -> Interceptor : afterCompletion()
+    Filter2 <-- DisptcherServlet
+end
+
+DisptcherServlet -> Handler : modelAndView = ha.handle()
+    note right
+        Controller のハンドラメソッド呼出し
+    end note
+DisptcherServlet -> Interceptor : postHandle()
+
+opt 例外発生
+    DisptcherServlet -> HandlerExceptionResolver : modelAndView = doResolveException()
+        note right
+            ExceptionHandlerExceptionResolver
+            → @ExceptionHandler 付きのメソッドを呼び出す。
+            　@ControllerAdvice を使って全Controllerを対象にできる。
+            SimpleMappingExceptionResolver
+            → 例外とビュー名をマッピング
+            ResponseStatusExceptionResolver
+            → @ResponseStatus または、
+            　ResponseStatusException からHTTPStatusに変換。
+            DefaultHandlerExceptionResolver
+            → 例外をハードコードでHTTPStatusに変換
+            その他独自 Resolver で処理
+            → TERASOLUNA GFW の SystemExceptionResolver など
+        end note
+end
+
+DisptcherServlet -> DisptcherServlet : render(modelAndView)
+    note left : ビューの生成
+DisptcherServlet -> Interceptor : afterCompletion()
+
+Filter2 <-- DisptcherServlet
+opt 例外発生
+    Filter2 -> Filter2
+        note right
+            ExceptionTranslationFilter : 認証シーケンスを開始する or AccessDeniedHandler を呼び出す。
+        end note
+end
+
+Filter <-- Filter2
+ServletContainer <-- Filter
+
+opt 例外発生
+    ServletContainer -> ServletContainer
+        note right
+            web.xml の <error-page> を処理
+            Spring boot の場合は
+            ErrorContoller が呼ばれる(その場合のデフォルトのビュー名は "error")。
+        end note
+end
+
+A <-- ServletContainer
+
+@enduml
