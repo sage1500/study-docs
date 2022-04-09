@@ -5,24 +5,67 @@ memo: ServletConainer から Controller まで
 - ServletContainer
 	- `<error-page>` -> ErrorController -> error.html
 - Filter
-- Filter (Spring Security)
-	- CsrfFilter
-		- AccessDeniedHandler : MissingCsrfTokenException例外時は HttpSecurity.sessionManagement().invalidSessionStrategy() を採用。それ以外はHttpSecurity.exceptionHandling() で設定したものはデフォルトのHandlerとして採用される。
-	- ExceptionTranslationFilter
-		- AuthenticationEntryPoint : HttpSecurity.exceptionHandling() で設定
-		- AccessDeniedHandler : HttpSecurity.exceptionHandling() で設定
-- DispatchServlet
+	- Filter (Before Spring)
+		- SessionRepositoryFilter
+	- DelegatingFilterProxy
+		- FilterChainProxy (Spring Security) ※2重実行ガード機能あり
+			- SecurityFilterChain  
+				※複数存在し、URLのパス等により、Filterのセットを切り替えられる  
+				※フルセットは https://spring.pleiades.io/spring-security/reference/servlet/architecture.html#servlet-security-filters 参照
+				- SecurityContextPersistenceFilter : SecurityContextHolder を設定する。
+				- CorsFilter
+				- CsrfFilter ※ハンドラ呼出しあり
+				- OAuth2AuthorizationRequestRedirectFilter
+				- OAuth2LoginAuthenticationFilter
+				- UsernamePasswordAuthenticationFilter
+				- BearerTokenAuthenticationFilter
+				- BasicAuthenticationFilter
+				- SessionManagementFilter
+				- ExceptionTranslationFilter
+					- AuthenticationEntryPoint : HttpSecurity.exceptionHandling() で設定
+					- AccessDeniedHandler : HttpSecurity.exceptionHandling() で設定
+				- FilterSecurityInterceptor
+	- Filter (After Spring)
+- Servlet (DispatchServlet)
 - Interceptor
 - `@ContollerAdvice`
 	- `@ExceptionHandler`
 - `@Controller`
 	- `@ExceptionHandler`
+- `@Service`
+- `@Repository`
 
+memo: Filterから呼ばれるハンドラ
+- CsrfFilter
+	- トークン不一致時
+		- AccessDeniedHandler
+			- 設定方法
+				- HttpSecurity.sessionManagement().invalidSessionStrategy()
+				- HttpSecurity.sessionManagement().invalidSessionUrl()
+					- 実装：SimpleRedirectInvalidSessionStrategy
+						- リダイレクトする
+				- HttpSecurity.exceptionHandling().accessDeniedHandler()
+				- HttpSecurity.exceptionHandling().accessDeniedPage()
+					- AccessDeniedHandlerImpl でラップ
+						- 403
+			- デフォルト実装: DelegatingAccessDeniedHandler
+				- MissingCsrfTokenException: InvalidSessionAccessDeniedHandler を呼び出す
+				- それ以外: AccessDeniedHandler を呼び出す
+		- トークンなし
+			- AccessDeniedHandler#handle(,,MissingCsrfTokenException)
+		- トークンあり
+			- AccessDeniedHandler#handle(,,InvalidCsrfTokenException)
 
 memo: ハンドラデフォルト
 - InvalidSessionStrategy
-	- HttpSecurity.sessionManagement().invalidSessionStrategy
-		- SimpleRedirectInvalidSessionStrategy
+	- 概要
+		- セッションが無効の場合に呼ばれる。無効になったタイミングで呼ばれるのではなく、セッションがない初回アクセスの場合にも呼ばれる。セッションが無効になったことをエラー検知する目的では使えない。基本的にデフォルトのままでよい。
+	- 設定
+		- HttpSecurity.sessionManagement().invalidSessionStrategy()
+		- HttpSecurity.sessionManagement().invalidSessionUrl()
+	- デフォルト値
+		- null
+		- SimpleRedirectInvalidSessionStrategy: invalidSessionUrl() を設定していた場合
 			- リダイレクトする
 - AuthenticationFailureHandler
 	- HttpSecurity.sessionManagement().sessionAuthenticationFailureHandler()
@@ -32,13 +75,54 @@ memo: ハンドラデフォルト
 	- HttpSecurity.sessionManagement().sessionAuthenticationStrategy()
 		- ChangeSessionIdAuthenticationStrategy
 - AuthenticationEntryPoint
+	- 概要
+		- 認証を開始する処理。`http.oauth2Login()` 等で認証方法を設定した場合は上書きすべきではない。
 	- HttpSecurity.exceptionHandling().authenticationEntryPoint() および defaultAuthenticationEntryPointFor()
 		- Http403ForbiddenEntryPoint
 			- 403
+	- 呼び出し契機:
+		- AuthenticationException: ExceptionTranslationFilter
+		- SessionAuthenticationException: SessionManagementFilter
+		- InternalAuthenticationServiceException: AbstractAuthenticationProcessingFilter
+		- AuthenticationException: AuthenticationFilter
+		- AuthenticationException: AbstractPreAuthenticatedProcessingFilter
+		- BadCredentialsException: DigestAuthenticationFilter
+		- AuthenticationException: BasicAuthenticationFilter
+
 - AccessDeniedHandler
 	- HttpSecurity.exceptionHandling().accessDeniedHandler() および defaultAccessDeniedHandlerFor()
 		- AccessDeniedHandlerImpl
 			- 403
+
+memo: BasicErrorController
+- HTTPステータス:
+	- request の RequestDispatcher.ERROR_STATUS_CODE 属性から取得
+- Model に載せるパラメータ
+	- 標準パラメータをのせるかどうか
+		- server.error.xxx プロパティで調整
+	- カスタマイズ
+		- ErrorAttributes Beanを定義
+- ビュー名
+	- ErrorViewResolver Beanを定義
+		- 評価順は `@Order`, `@Priority` アノテーション、または `Ordered` インタフェース実装で制御する
+		- 参考) DefaultErrorViewResolver
+			- error/4xx に振り分けている Bean
+
+
+memo: Spring Boot における Tomcat への Filter登録
+- AbstractFilterRegistrationBean のサブクラス
+	- org.springframework.boot.web.servlet.DelegatingFilterProxyRegistrationBean
+		- ユーザが任意の Bean名に対する DelegatingFilterProxy を生成
+	- org.springframework.boot.web.servlet.FilterRegistrationBean
+		- ユーザが任意のFilterを生成
+- WebApplicationInitializer の実装クラス
+	- org.springframework.security.web.context.AbstractSecurityWebApplicationInitializer
+		- DelegatingFilterProxy を生成("springSecurityFilterChain"に対する Proxy)
+	- org.springframework.session.web.context.AbstractHttpSessionApplicationInitializer.onStartup(ServletContext)
+		- DelegatingFilterProxy を生成("springSessionRepositoryFilter"に対する Proxy)
+			- order : Integer.MIN_VALUE + 50
+	- org.springframework.web.servlet.support.AbstractDispatcherServletInitializer.onStartup(ServletContext)
+		- ??
 
 # Filter
 
