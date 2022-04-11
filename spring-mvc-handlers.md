@@ -5,16 +5,20 @@ memo: ServletConainer から Controller まで
 - ServletContainer
 	- `<error-page>` -> ErrorController -> error.html
 - Filter
-	- Filter (Before Spring)
-		- SessionRepositoryFilter
+	- CharacterEncodingFilter
+	- org.springframework.cloud.sleuth.instrument.web.servlet.TracingFilter
+	- SessionRepositoryFilter (Spring Session)
+	- FormContentFilter
+	- RequestContextFilter ※LocaleContextHolder設定
 	- DelegatingFilterProxy
 		- FilterChainProxy (Spring Security) ※2重実行ガード機能あり
 			- SecurityFilterChain  
 				※複数存在し、URLのパス等により、Filterのセットを切り替えられる  
 				※フルセットは https://spring.pleiades.io/spring-security/reference/servlet/architecture.html#servlet-security-filters 参照
-				- SecurityContextPersistenceFilter : SecurityContextHolder を設定する。
+				- SecurityContextPersistenceFilter ※SecurityContextHolder設定
 				- CorsFilter
 				- CsrfFilter ※ハンドラ呼出しあり
+				- LogoutFilter
 				- OAuth2AuthorizationRequestRedirectFilter
 				- OAuth2LoginAuthenticationFilter
 				- UsernamePasswordAuthenticationFilter
