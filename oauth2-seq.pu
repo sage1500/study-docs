@@ -1,0 +1,74 @@
+@startuml
+
+participant "Filter" as Y
+participant "OAuth2Login\nAuthenticationFilter" as Z
+participant "Provider\nManager" as A
+participant "OAuth2Login\nAuthenticationProvider" as B
+participant "OidcAuthorizationCode\nAuthenticationProvider" as C
+participant OidcUserService as OidcUserService
+participant "Token\nEndpoint" as TE
+participant "User\nEndpoint" as UE
+
+Y -> Z : doFilter()
+
+Z -> Z : attemptAuthentication()
+activate Z
+
+Z -> A : authenticate()
+
+A -> B : authenticate()
+    break scope = openid
+A <-- B
+    end
+    B -> B : scopeにopenidがない場合の処理
+A <-- B
+
+A -> C : authenticate()
+    break scope != openid
+A <-- C
+    end
+
+    break エラー応答
+A <-- C : throw Exception
+    end
+
+C -> TE
+C <-- TE
+    break IDトークンなし or JWT検証NG、Nonce検証NG
+A <-- C : throw Exception
+    end
+
+C -> OidcUserService : loadUser()
+    break scope in profile, email, address, phone
+C <-- OidcUserService
+    end
+OidcUserService -> UE
+OidcUserService <-- UE
+C <-- OidcUserService
+A <-- C : result:OAuth2LoginAuthenticationToken
+A -> A : AuthenticationSuccessEvent発行\n※要setAuthenticationEventPublisher()
+
+Z <-- A
+Z -> Z : OAuth2AuthorizedClient保存
+Z <-- Z
+deactivate Z
+Z -> Z : sessionStrategy.onAuthentication()\n※SessionIDを変更する処理など。
+Z -> Z : SecurityContextHolder設定
+Z -> Z : InteractiveAuthenticationSuccessEvent発行\n要setApplicationEventPublisher()
+Z -> Z : successHandler.onAuthenticationSuccess()\n※ログイン後の画面にリダイレクトする処理
+    note right
+    SavedRequestAwareAuthenticationSuccessHandler
+    - 元の request が保存されていない、
+    　もしくは alwaysUseDefaultTargetUrl, targetUrlParameter が設定されていれば、
+    　SimpleUrlAuthenticationSuccessHandler と同じ動き
+    - 上記以外は、元の request にリダイレクト
+
+    SimpleUrlAuthenticationSuccessHandler
+    - defaultTargetUrl = "/" ※defaultSuccessUrl() で設定
+    - alwaysUseDefaultTargetUrl = false ※defaultSuccessUrl() で設定
+    - targetUrlParameter = null
+    上記で決定したURLにリダイレクトする。
+    end note
+Y <-- Z
+
+@enduml

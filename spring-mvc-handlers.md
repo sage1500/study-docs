@@ -17,10 +17,10 @@ memo: ServletConainer から Controller まで
 				※フルセットは https://spring.pleiades.io/spring-security/reference/servlet/architecture.html#servlet-security-filters 参照
 				- SecurityContextPersistenceFilter ※SecurityContextHolder設定
 				- CorsFilter
-				- CsrfFilter ※ハンドラ呼出しあり
+				- CsrfFilter ※ハンドラ呼出しあり。Tokenをセッションに保存する場合は、必ずセッションがある状態にされる。
 				- LogoutFilter
-				- OAuth2AuthorizationRequestRedirectFilter
-				- OAuth2LoginAuthenticationFilter
+				- OAuth2AuthorizationRequestRedirectFilter ※ログイン用URLなら認可サーバの認可エンドポイントにリダイレクトする
+				- OAuth2LoginAuthenticationFilter ※認可サーバから認可コードが送られてきたときの処理（？）
 				- UsernamePasswordAuthenticationFilter
 				- BearerTokenAuthenticationFilter
 				- BasicAuthenticationFilter
