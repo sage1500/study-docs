@@ -1,0 +1,53 @@
+@startuml REST要求送信
+
+participant "A" as A
+participant "ServletOAuth2AuthorizedClient\nExchangeFilterFunction" as EF
+participant "Next Filter" as NF
+participant "DefaultOAuth2Authorized\nClientManager" as CM
+participant "DelegatingOAuth2Authorized\nClientProvider" as CP
+
+note over CP
+■DelegatingOAuth2AuthorizedClientProvider のデフォルト構成
+1. AuthorizationCodeOAuth2AuthorizedClientProvider
+  発動条件： GrantType が authorization_code かつ Clientが未認証
+  処理内容： ClientAuthorizationRequiredException をスロー。
+2. RefreshTokenOAuth2AuthorizedClientProvider
+  発動条件： リフレッシュトークンがあり、アクセストークンが期限切れ
+  処理内容： OAuth2AccessTokenResponseClient.getTokenResponse()経由で
+    トークンエンドポイントにアクセス。
+3. ClientCredentialsOAuth2AuthorizedClientProvider
+  発動条件： GrantType が client_credentials かつ、Clientが未認証またはアクセストークンが有効期限切れ
+  処理内容： OAuth2AccessTokenResponseClient.getTokenResponse()経由で
+    トークンエンドポイントにアクセス。
+4. PasswordOAuth2AuthorizedClientProvider
+  発動条件： GrantType が password かつ、Clientが未認証またはアクセストークンが有効期限切れ
+  処理内容： OAuth2AccessTokenResponseClient.getTokenResponse()経由で
+    トークンエンドポイントにアクセス。
+end note
+
+A -> EF : filter()
+EF -> CM : authorize()
+    activate CM
+CM -> CM : authorizedClient = \nOAuth2AuthorizedClientService\n.loadAuthorizedClient()
+CM -> CP : authorize()
+    note right
+    アクセストークンの期限切れの場合に
+    ここでトークン再取得が走る
+    end note
+CM <-- CP
+    return authorizedClient /' EF <-- CM '/
+EF -> EF : HTTPヘッダに\nアクセストークンを載せる
+EF -> NF : exchange()
+EF <-- NF
+
+opt 例外
+    EF -> EF : OAuth2AuthorizationFailureHandler\n.onAuthorizationFailure()
+    note over EF,NF
+    このフィルタ自体では、HTTPステータス 401, 403時に
+    トークン再取得しているわけではない。
+    end note
+end
+
+A <-- EF
+
+@enduml

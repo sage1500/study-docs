@@ -1,4 +1,4 @@
-@startuml
+@startuml 認可コード受信
 
 participant "Filter" as Y
 participant "OAuth2Login\nAuthenticationFilter" as Z
@@ -10,6 +10,9 @@ participant "Token\nEndpoint" as TE
 participant "User\nEndpoint" as UE
 
 Y -> Z : doFilter()
+    note right
+    URL: /login/oauth2/code/xxx
+    end note
 
 Z -> Z : attemptAuthentication()
 activate Z
@@ -32,8 +35,17 @@ A <-- C
 A <-- C : throw Exception
     end
 
-C -> TE
+note over C, UE
+Spring Securityの実装では、OAuth2の EndPoint への送信は、
+基本的に以下の実装になっている。
+1. OAuth2XxxRequest を生成
+2. 上記を OAuth2XxxRequestEntityConveter を使用して RequestEntity に変換
+3. 上記を RestOperations.exchange(RequestEntity<?>, Class<T>) を使用して送信
+end note
+
+C -> TE : OAuth2AccessTokenResponseClient\n.getTokenResponse()
 C <-- TE
+
     break IDトークンなし or JWT検証NG、Nonce検証NG
 A <-- C : throw Exception
     end
@@ -42,16 +54,35 @@ C -> OidcUserService : loadUser()
     break scope in profile, email, address, phone
 C <-- OidcUserService
     end
-OidcUserService -> UE
+OidcUserService -> UE : DefaultOAuth2UserService\n.loadUser()
 OidcUserService <-- UE
+
 C <-- OidcUserService
 A <-- C : result:OAuth2LoginAuthenticationToken
 A -> A : AuthenticationSuccessEvent発行\n※要setAuthenticationEventPublisher()
 
 Z <-- A
 Z -> Z : OAuth2AuthorizedClient保存
+note over Z, A
+OAuth2AuthorizedClientRepository.saveAuthorizedClient()で保存。
+
+■OAuth2AuthorizedClientRepositoryの選定
+1. OAuth2LoginConfigurer.authorizedClientRepository() で設定したもの
+2. OAuth2AuthorizedClientRepository Bean
+3. AuthenticatedPrincipalOAuth2AuthorizedClientRepository
+  ※内部実装として、OAuth2AuthorizedClientService を使用。選定順は以下のとおり。
+  a. OAuth2AuthorizedClientService Bean
+  b. InMemoryOAuth2AuthorizedClientService
+end note
 Z <-- Z
+
 deactivate Z
+
+note over Z, A
+以降は、superクラスである AbstractAuthenticationProcessingFilter での
+共通処理
+end note
+
 Z -> Z : sessionStrategy.onAuthentication()\n※SessionIDを変更する処理など。
 Z -> Z : SecurityContextHolder設定
 Z -> Z : InteractiveAuthenticationSuccessEvent発行\n要setApplicationEventPublisher()
