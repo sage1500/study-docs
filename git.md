@@ -282,9 +282,14 @@ $ git rebase -i HEAD~{{n}}  # n はまとめる数(以上)を設定
 		- --ff
 		- --no-ff
 		- --squash ## 統合ブランチへマージ時にコミットをまとめる。。。？
+	- マージが成功すると、コミット済の状態になる。特に `--no-ff` の場合は、マージコミットが作成される。
+	- マージ時にコンフリクトが発生すると、マージが完了しない。この場合は以下のどちらかを実施する。
+		- `git merge --abort` を実行してマージを中断する。
+		- コンフリクトを解消し、`git add` と `git commit` を実行する。
 		
 - コミット取消 TODO
 	- $ git reset --hard HEAD~
+		- ※ `HEAD~` や `HEAD^` を指定するより、`git log --oneline --graph` してから、コミットID指定する方が安心感がある。特にマージコミットがある場合。
 
 - 先頭のコミットを修正する
 	- ファイルの内容とコミットコメントを修正する
@@ -317,10 +322,12 @@ $ git rebase -i HEAD~{{n}}  # n はまとめる数(以上)を設定
 		- $ git reset --soft HEAD~ ## add した状態にする
 		- $ git reset --mixed HEAD~ ## add する前の状態にする
 		- $ git reset --hard HEAD~ ## ファイルの状態も元に戻す
-		TODO 2つ以上戻して、再コミットすることでコミットをまとめられる？rebase -i しなくてもOK？
+		- ※2つ以上戻して、再コミットすることでコミットをまとめることができる。rebase -i だけがコミットをまとめる方法ではない。
 
 - 別ブランチのコミットを現在のブランチにも追加する
 	- $ git cherry-pick {{commit}}
+		- コミットを追加するので、コミット済の状態
+		- コミットのIDは別のものになる。
 		- 履歴はつながらない。revert と同系列
 	
 ### TODO
@@ -364,7 +371,6 @@ You can initialize this repository with code from a Subversion, Mercurial, or TF
 
 		※実際のリポジトリのパスには、コマンドで出力されるパスの前に `file://` をつける
 			★つけなくてもよかったりする？
-
 
 ## 付録A. コミット指定方法
 
@@ -474,3 +480,83 @@ You can initialize this repository with code from a Subversion, Mercurial, or TF
 |-|-|-|
 |差分のあるファイル名のみ表示|`git diff {{略}} --name-only`
 |差分のあるファイルの変更状態のみ表示|`git diff {{略}} --stat`
+
+## 付録C. ファイルシステム上にリモートリポジトリを作成
+
+コマンド）
+```
+$ git init --bare --shared {{リポジトリディレクトリ}}
+```
+
+init の実行例）
+```
+$ git init --bare --shared 'c:\foo\bar\repos1'
+Initialized empty shared Git repository in C:/foo/bar/repos1/
+```
+
+`Git repository in` の後に記載されているのがリポジトリのURL。
+このURL対して `clone` や `remote add origin` して使用する。
+
+clone 実行例：
+```
+$ git clone C:/foo/bar/repos1/
+Cloning into 'repos1'...
+warning: You appear to have cloned an empty repository.
+done.
+```
+
+あとは、ネットワーク上のリモートリポジトリと同じ。
+
+```
+$ cd repos1
+$ git branch -m main
+$ echo first > README.md
+$ git add .
+$ git commit -m "first commit"
+$ git push
+$ git log --oneline
+```
+
+## 付録D. Pull Request時にコンフリクトした場合の対処
+
+### D.1 基本
+逆向きにマージしてコンフリクトを解消した状態で push する。
+
+```
+$ git fetch
+$ git checkout develop
+$ git merge
+$ git checkout feature/1
+$ git merge
+$ git merge develop
+
+<コンフリクトが解消するようにファイル編集>
+
+$ git add .
+$ git commit -m "Fixed conflicts."
+$ git push
+```
+
+### D.2 プルリクしないとマージできないブランチ間のプルリクの場合
+
+作業ブランチ経由でマージし、作業ブランチをプルリクする。
+
+develop/1 から develop/2 へのプルリクがコンフリクトした場合は、
+develop/1 から作業ブランチ work/1to2 にブランチし、develop/2 をマージ。
+その後、work/1to2 を develop/2 に対してプリリクする。
+
+```
+$ git fetch
+$ git checkout develop/1
+$ git merge
+$ git checkout develop/2
+$ git merge
+$ git checkout -b work/1to2
+$ git merge develop/2
+
+<コンフリクトが解消するようにファイル編集>
+
+$ git add .
+$ git commit -m "Fixed conflicts."
+$ git push
+```
