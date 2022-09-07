@@ -133,6 +133,13 @@ release.properties
 	- タグ:v{{Release時のバージョン}}
 	- Snapshotバージョンは、Releaseバージョン x.y.z の zの値をインクリメントしたもの
 	- `mvn release:clean release:prepare --batch-mode -DreleaseVersion=1.0.0`
+- リリースバージョンを指定して実行する。開発バージョンは変更しない。
+	- Release時のバージョンは指定したバージョン
+	- タグ:v{{Release時のバージョン}}
+	- Snapshotバージョンは、変更しない。
+    	- 実際は、バージョンを元に戻して再pushする。
+    	- バージョンを変更した別のブランチへのマージ時にコンフリクトは発生しない。
+	- `mvn release:clean release:prepare --batch-mode -DreleaseVersion=1.0.0 -DupdateWorkingCopyVersions=false`
 - バージョンとタグをお任せで実行する(releaseブランチでの故障改修を想定)
 	- Release時のバージョンは SNAPSHOTを外したバージョン
 	- タグ:v{{Release時のバージョン}}
