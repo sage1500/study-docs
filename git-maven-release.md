@@ -93,7 +93,7 @@ release.properties
 
 #### mvn release:clean
 
-mvn release:prepareで更新した内容を基に戻す。  
+`mvn release:prepare` や `mvn release:branch` で更新した内容を元に戻す。  
 
 ※gitリポジトリ上は元に戻さない。
 ※pom.xml は pom.xml.releaseBackup から戻すため、これがないと元に戻せない。
@@ -159,6 +159,60 @@ mvn release:clean release:prepare -DdryRun=true
 を実行するという手もある(かもしれない)。
 ```
 
+#### mvn release:update-versions
+
+作業コピー上の開発バージョンを更新する。
+
+- SNAPSHOTバージョンのままバージョンをインクリメントする。
+  コマンド: 
+	```
+	mvn --batch-mode release:update-versions
+	```
+- 指定のバージョンに変更する。  
+  コマンド: ※1.2.0-SNAPSHOTに変更する場合の例 
+	```
+	mvn --batch-mode release:update-versions -DdevelopmentVersion=1.2.0-SNAPSHOT
+	```
+	補足：
+	- SNAPSHOTなしのバージョンを指定することはできない。指定した場合は、その指定は無視される。
+	- バージョンは下げることもできる。
+
+
+#### mvn release:branch
+
+ブランチを作成する。
+現在のブランチと作成したブランチの開発バージョンを変更する。
+
+- 現在のブランチから旧バージョン用のブランチを作成。現在のブランチの開発バージョンを変更する。
+	```
+	$ mvn --batch-mode release:branch -DbranchName=1.1 -DdevelopmentVersion=1.2.0-SNAPSHOT
+	$ git pull
+	```
+	補足：
+  	- 新規ブランチ側
+    	- ブランチ名： 1.1
+    	- pom.xml のバージョン： 変更なし
+    	- pom.xml の scm/tag： HEAD からブランチ名(1.1)に変更
+    	- push済
+	- 現在のブランチ
+    	- pom.xml のバージョン： 指定した開発バージョンに変更(1.2.0-SNAPSHOT)
+    	- push済
+- 現在のブランチから新バージョン用のブランチを作成。新ブランチの開発バージョンを変更する。
+	```
+	$ mvn --batch-mode release:branch -DbranchName=1.3 -DreleaseVersion=1.3.0 -DupdateBranchVersions=true -DupdateWorkingCopyVersions=false
+	$ git pull
+	```
+	補足：
+  	- 新規ブランチ側
+    	- ブランチ名： 1.3
+    	- pom.xml のバージョン： 指定したリリースバージョンをインクリメントしたSNAPSHOTバージョンに変更(1.3.1-SNAPSHOT)
+          - 指定したリリースバージョンを持つ commit は存在しない。
+    	- pom.xml の scm/tag： HEAD からブランチ名(1.3)に変更
+    	- push済
+	- 現在のブランチ
+    	- pom.xml のバージョン： 変更なし
+          - ただし、commit は 2つ進んでいる。
+    	- push済
 
 ### TODO 以下書きかけ（消すかも）
 
@@ -174,33 +228,9 @@ mvn org.apache.maven.plugins:maven-release-plugin:3.0.0-M5:perform -DconnectionU
 
 	<releaseProfiles>release</releaseProfiles>
 	と定義して、release プロファイルの defaultGoal を install にしても、mvn deploy される。なぜだ？
-
-
-
-
-mvn release:branch -DbranchName=release/0.0.7 -DupdateBranchVersions=true -DupdateWorkingCopyVersions=false
-	SNAPSHOTバージョンを上げたものをブランチに作成
-	元のブランチは、merge --ff して、SUNAPSHOTバージョンを戻すという不思議な動き
-
-	release:prepare の タグの代わりにブランチを使う版
-	
-
-
-mvn --batch-mode release:branch -DbranchName=my-branch-1.2 -Dproject.rel.org.myCompany:projectA=1.2 \
-     -Dproject.dev.org.myCompany:projectA=2.0-SNAPSHOT
      
 mvn --batch-mode -Dtag=my-proj-1.2 release:prepare \
                  -DreleaseVersion=1.2 \
                  -DdevelopmentVersion=2.0-SNAPSHOT
 mvn --batch-mode -Dtag=my-proj-1.2 -Dproject.rel.org.myCompany:projectA=1.2 \
      -Dproject.dev.org.myCompany:projectA=1.3-SNAPSHOT release:prepare
-
-
-release:update-versions
-	mvn --batch-mode release:update-versions
-		SNAPSHOTバージョンのままバージョンを上げる
-
-	mvn --batch-mode release:update-versions -DdevelopmentVersion=1.2.0-SNAPSHOT
-		バージョン指定もできるが、
-		SNAPSHOTなしのバージョンにはできない。
-
