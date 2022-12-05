@@ -26,6 +26,8 @@
 |DefaultLogoutPageGeneratingFilter |デフォルトのログアウトページ。ログイン画面が必要な認証方式かつログインページを設定していなく、さらにログアウトが有効の場合に有効化される。|`http.formLogin()`、`http.oauth2Login()`|準有効
 |DefaultLoginPageGeneratingFilter |デフォルトのログインページ。ログイン画面が必要な認証方式かつログインページを設定していない場合に有効化される。|`http.formLogin()`、`http.oauth2Login()`|準有効
 |UsernamePasswordAuthenticationFilter |ユーザ名とパスワードによるログイン処理する。デフォルトでは、`/login` を処理するフィルタ。 |`http.formLogin()`|-
+|??OAuth2LoginAuthenticationFilter??|??|`http.oauth2Login()`|-
+|??OAuth2AuthorizationRequestRedirectFilter??|??|`http.oauth2Login()`|-
 |LogoutFilter   |ログアウト処理する。デフォルトでは、`/logout` を処理するフィルタ。| `http.logout()`|有効
 |CsrfFilter |CSRFトークンチェック。| `http.csrf()`|有効
 |HeaderWriterFilter |HeaderWriterによる（X-Frame-Options等の）HTTPヘッダ追記の仕込み。| `http.headers()`|有効
@@ -65,3 +67,15 @@
 	}
 ```
 
+## memo: URLを処理するフィルタ
+
+|メソッド|パス|処理クラス|処理内容|
+|-|-|-|-|
+|GET |/logout      |DefaultLogoutPageGeneratingFilter|ログアウト画面
+|POST|/logout      |LogoutFilter|ログアウト処理
+|GET |/login       |DefaultLoginPageGeneratingFilter|ログイン画面（メッセージなし）
+|GET |/login?error |DefaultLoginPageGeneratingFilter|ログイン画面（メッセージあり：エラーメッセージ）
+|GET |/login?logout|DefaultLoginPageGeneratingFilter|ログイン画面（メッセージあり：ログアウト成功）
+|POST|/login       |UsernamePasswordAuthenticationFilter|ログインボタン押下処理（FormLogin）
+|ANY?|/oauth2/authorization/{registrationId}|OAuth2AuthorizationRequestRedirectFilter|ログイン画面（認可エンドポイント）
+|GET |/login/oauth2/code/*|OAuth2LoginAuthenticationFilter|ログインボタン押下処理（OAuth2Login）
