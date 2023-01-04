@@ -143,3 +143,26 @@ Spring Security で認可コードからトークンエンドポイントにア�
   2. `responseClient.setRequestEntityConverter(new MyOAuth2AuthorizationCodeGrantRequestEntityConverter());`
   3. `http.oauth2Login().tokenEndpoint().accessTokenResponseClient(responseClient);`
 
+
+## Single Logout対応イメージ
+
+- 前提
+  - 画面のセッションタイムアウトと KeyCloak の SSO Session Idle の時間を合わせる
+
+1. k_logout 呼出し時に KeyCloakのセッションIDをログアウト済としてマークする(Redisに保存。TTLをセッションタイムアウト＋5分程度にする)
+   - なお、KeyCloakのセッションID は keycloakSessionIdsクレームに乗ってくる。
+   - 参考) k_logout のクレーム  
+        ```json
+        {
+            "keycloakSessionIds": ["1481e84f-8413-4e89-a343-3b4b279c0697"], 
+            "resource": "demoapp", 
+            "action": "LOGOUT", 
+            "expiration": 1672851716,
+            "id": "5983b7a0-5426-4fa8-ba21-fc6b5b6fcb80-1672851686258",
+            "adapterSessionIds": ["test-session-id"],
+            "notBefore": 0
+        }
+        ``` 
+1. Webアクセス時にトークンリフレッシュを実施（アクセストークンの期限が切れていたら）
+   1. トークンリフレッシュの前に、アクセストークンの session_stateクレームに保存されている KeyCloak のセッションIDがログアウト済としてマークされているか確認する。もし、マークされていればセッション無効として扱う。
+   2. トークンリフレッシュに失敗したら、セッション無効として扱う。
